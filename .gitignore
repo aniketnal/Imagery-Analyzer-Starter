@@ -1,0 +1,41 @@
+# Node.js (React Frontend)
+node_modules/
+build/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Flask (Python Backend)
+__pycache__/
+*.py[cod]
+instance/
+.env
+*.env
+*.sqlite3
+*.db
+
+# Earth Engine auth and config
+credentials/
+token*
+.earthengine/
+.conda/
+
+# OS/System files
+.DS_Store
+Thumbs.db
+*.log
+
+# VSCode or other IDE configs
+.vscode/
+.idea/
+
+# Python virtual environments
+venv/
+env/
+ENV/
+
+# zip archives or downloads
+*.zip
+*.tar.gz
+*.rar
