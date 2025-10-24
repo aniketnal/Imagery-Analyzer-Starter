@@ -6,7 +6,8 @@ import L from "leaflet";
 import "leaflet-draw";
 import axios from "axios";
 
-const DrawControl = ({ setImageUrl, setLoading }) => {
+// DrawControl Component
+const DrawControl = ({ setImageUrls, setLoading }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -36,43 +37,67 @@ const DrawControl = ({ setImageUrl, setLoading }) => {
 
       try {
         setLoading(true);
-        const res = await axios.post("http://localhost:5000/get-image", {
+        const res = await axios.post("http://localhost:5000/get-multi-image", {
           coordinates: coords
         });
-        setImageUrl(res.data.url);
+        setImageUrls(res.data.images);
       } catch (err) {
         console.error(err);
-        alert("Error fetching image.");
+        alert("Error fetching images.");
       } finally {
         setLoading(false);
       }
     });
-  }, [map, setImageUrl, setLoading]);
+  }, [map, setImageUrls, setLoading]);
 
   return null;
 };
 
+// Main App Component
 export default function App() {
-  const [imageUrl, setImageUrl] = useState(null);
+  const [imageUrls, setImageUrls] = useState([]);
   const [loading, setLoading] = useState(false);
 
   return (
     <div>
-      <MapContainer center={[51.505, -0.09]} zoom={13} style={{ height: "70vh" }}>
+      <MapContainer center={[19.05, 73.88]} zoom={12} style={{ height: "70vh" }}>
         <TileLayer
           attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <DrawControl setImageUrl={setImageUrl} setLoading={setLoading} />
+        <DrawControl setImageUrls={setImageUrls} setLoading={setLoading} />
       </MapContainer>
+
       <div style={{ padding: "10px", textAlign: "center" }}>
-        {loading && <p>Fetching image from Google Earth Engine...</p>}
-        {imageUrl && !loading && (
+        {loading && <p>Fetching satellite images from Google Earth Engine...</p>}
+
+        {!loading && imageUrls.length > 0 && (
           <div>
-            <p><strong>Satellite Image:</strong></p>
-            <img src={imageUrl} alt="Satellite Preview" style={{ maxWidth: "90%" }} />
-            <br />
-            <a href={imageUrl} target="_blank" download="gee_image.png">Download Image</a>
+            {imageUrls.map(img => (
+              <div key={img.years_ago} style={{ marginBottom: "30px" }}>
+                <p><strong>{img.years_ago === 0 ? "Current Year" : `${img.years_ago} Years Ago`}</strong></p>
+                {img.url ? (
+                  <>
+                    <img
+                      src={img.url}
+                      alt={`Satellite ${img.years_ago} yrs ago`}
+                      style={{ maxWidth: "90%" }}
+                    />
+                    <br />
+                    <a
+                      href={img.url}
+                      target="_blank"
+                      download={`gee_image_${img.years_ago}yr.png`}
+                      rel="noreferrer"
+                    >
+                      Download Image
+                    </a>
+                  </>
+                ) : (
+                  <p style={{ color: "red" }}>No image available for this timeframe.</p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
