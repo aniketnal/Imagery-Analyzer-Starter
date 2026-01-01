@@ -8,12 +8,6 @@ CORS(app)
 
 ee.Initialize(project='satellite-imagery-analyzer')
 
-# Function to mask clouds in Landsat 8 L2
-def maskL8sr(image):
-    qa = image.select('QA_PIXEL')
-    cloud_mask = qa.bitwiseAnd(1 << 3).eq(0)  # Clear pixels only
-    return image.updateMask(cloud_mask)
-
 @app.route("/get-multi-image", methods=["POST"])
 def get_multi_image():
     data = request.json
@@ -29,25 +23,28 @@ def get_multi_image():
 
     for offset in year_offsets:
         end_date = today - timedelta(days=365 * offset)
-        start_date = end_date - timedelta(days=365)  # 1-year window
+        start_date = end_date - timedelta(days=365)
 
         start_date_str = start_date.strftime('%Y-%m-%d')
         end_date_str = end_date.strftime('%Y-%m-%d')
 
-        # Choose collection based on years ago
-        if offset <= 5:
-            collection_id = 'COPERNICUS/S2_SR_HARMONIZED'  # Sentinel-2
-            bands = ['B4', 'B3', 'B2']
-            max_val = 3000
+        # Sentinel-2 (preferred)
+        if offset <= 7:
+            collection_id = 'COPERNICUS/S2_SR_HARMONIZED'
+            bands = ['B3', 'B4', 'B8', 'B11']  
+            scale = 10
         else:
-           collection_id = 'LANDSAT/LC08/C02/T1_L2'  
-           bands = ['SR_B4', 'SR_B3', 'SR_B2']     
-           max_val = 3000                           
+            # Landsat-8 equivalent bands
+            collection_id = 'LANDSAT/LC08/C02/T1_L2'
+            bands = ['SR_B3', 'SR_B4', 'SR_B5', 'SR_B6']
+            scale = 30
 
-        collection = (ee.ImageCollection(collection_id)
-                      .filterBounds(geometry)
-                      .filterDate(start_date_str, end_date_str)
-                      .select(bands))
+        collection = (
+            ee.ImageCollection(collection_id)
+            .filterBounds(geometry)
+            .filterDate(start_date_str, end_date_str)
+            .select(bands)
+        )
 
         if collection.size().getInfo() == 0:
             images_urls.append({"years_ago": offset, "url": None})
@@ -55,18 +52,20 @@ def get_multi_image():
 
         image = collection.median().clip(geometry)
 
-        url = image.getThumbURL({
+        # GeoTIFF with bands embedded
+        url = image.getDownloadURL({
             'region': geometry,
-            'format': 'png',
+            'scale': scale,
+            'format': 'GEO_TIFF',
             'bands': bands,
-            'min': 0,
-            'max': max_val,
-            'gamma': 1.4,
-            'dimensions': [1024, 1024],
             'crs': 'EPSG:4326'
         })
 
-        images_urls.append({"years_ago": offset, "url": url})
+        images_urls.append({
+            "years_ago": offset,
+            "bands": bands,
+            "url": url
+        })
 
     return jsonify({"images": images_urls})
 
